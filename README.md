@@ -1,1 +1,1 @@
-# EmojiDetector
+# Emoji Detector
