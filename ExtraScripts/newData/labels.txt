@@ -1,0 +1,10 @@
+screenshot_1.png, 😊, U+1F60A
+screenshot_2.png, 😂, U+1F602
+screenshot_3.png, ❤️, U+2764
+screenshot_4.png, 👍, U+1F44D
+screenshot_5.png, 😭, U+1F62D
+screenshot_6.png, 🔥, U+1F525
+screenshot_7.png, 😎, U+1F60E
+screenshot_8.png, 🤔, U+1F914
+screenshot_9.png, 🥳, U+1F973
+screenshot_10.png, 💡, U+1F4A1

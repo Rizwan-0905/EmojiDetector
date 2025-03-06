@@ -1,64 +1,55 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+import pyautogui
 import time
 import os
+import pyperclip  # For clipboard handling
 
-# Set up Chrome options
-chrome_options = Options()
-chrome_options.add_argument("--user-data-dir=chrome-data")  # Keep user session
+# Define the target contact name (as saved in WhatsApp)
+target_contact = "Rizwan-2"  # Change this to the contact name
 
-# Set up the WebDriver
-service = Service('path/to/chromedriver')  # Update with the correct path
-driver = webdriver.Chrome(service=service, options=chrome_options)
-
-# Open WhatsApp Web
-driver.get('https://web.whatsapp.com')
-
-# Wait for the user to scan the QR code
-input("Press Enter after scanning QR code")
-
-# Define the target number
-target_number = '1234567890'  # Replace with the target number
-
-# Search for the target number
-search_box = driver.find_element(By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]')
-search_box.click()
-search_box.send_keys(target_number)
-time.sleep(2)  # Wait for search results to load
-
-# Select the chat
-chat = driver.find_element(By.XPATH, f'//span[@title="{target_number}"]')
-chat.click()
-
-# Get the emoji panel and extract all emojis
-driver.find_element(By.XPATH, '//button[@title="Emoji"]').click()
-time.sleep(1)
-emoji_elements = driver.find_elements(By.XPATH, '//div[contains(@class, "emoji")]/span')
-
-# Prepare label file
-screenshot_path = 'path/to/save/screenshots'  # Update with the correct path
+# Define the path to save screenshots
+screenshot_path = 'C:/users/lms/desktop/codespace/uni/EmojiDetector/ExtraScripts/newData'
 if not os.path.exists(screenshot_path):
     os.makedirs(screenshot_path)
+
 label_file = os.path.join(screenshot_path, 'labels.txt')
 
+# Load emojis and their Unicode hex values
+emojis = ["😊", "😂", "❤️", "👍", "😭", "🔥", "😎", "🤔", "🥳", "💡"]
+emoji_hex = ["U+1F60A", "U+1F602", "U+2764", "U+1F44D", "U+1F62D",
+             "U+1F525", "U+1F60E", "U+1F914", "U+1F973", "U+1F4A1"]
+
+# Open WhatsApp Desktop App
+os.system("start WhatsApp")  # Works on Windows
+time.sleep(7)  # Wait for WhatsApp to open
+
+# Open search bar & find the contact
+pyautogui.hotkey("ctrl", "f")  # Open search in WhatsApp Desktop
+time.sleep(1)
+pyautogui.write(target_contact)  # Type contact name
+time.sleep(2)
+pyautogui.press("enter")  # Select the chat
+time.sleep(3)  # Ensure chat is open
+
+# Open file for writing labels
 with open(label_file, 'w', encoding='utf-8') as f:
-    # Send each emoji one by one and save its Unicode
-    message_box = driver.find_element(By.XPATH, '//div[@contenteditable="true"][@data-tab="6"]')
-    message_box.click()
-    for emoji_element in emoji_elements:
-        emoji = emoji_element.text
-        if emoji:  # Ensure it's not an empty string
-            message_box.send_keys(emoji)
-            message_box.send_keys(Keys.ENTER)
-            time.sleep(0.5)  # Adjust delay to prevent overload
-            f.write(f'{emoji} : {ord(emoji)}\n')
+    for idx, (emoji, unicode_hex) in enumerate(zip(emojis, emoji_hex), start=1):
+        # Copy emoji to clipboard
+        pyperclip.copy(emoji)
+        time.sleep(1)
 
-# Take a screenshot of the chat
-screenshot_file = os.path.join(screenshot_path, 'screenshot.png')
-driver.save_screenshot(screenshot_file)
+        # Paste emoji in chat
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(1)
 
-# Close the WebDriver
-driver.quit()
+        # Press enter to send
+        pyautogui.press("enter")
+        time.sleep(2)  # Wait for the message to send
+
+        # Take screenshot
+        screenshot_file = os.path.join(screenshot_path, f'screenshot_{idx}.png')
+        pyautogui.screenshot(screenshot_file)
+
+        # Save label as "screenshot_name, emoji, unicode"
+        f.write(f'{os.path.basename(screenshot_file)}, {emoji}, {unicode_hex}\n')
+
+print("All emojis sent, labeled, and screenshots saved successfully!")
