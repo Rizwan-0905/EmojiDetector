@@ -65,7 +65,18 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 
 # Train the model
 epochs = 3
-model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=32)
+
+for epoch in range(epochs):
+    print(f"\nEpoch {epoch + 1}/{epochs}")
+    
+    # Training step (one forward + backward pass for all samples)
+    history = model.train_on_batch(X_train, y_train)  # No batching, everything at once
+    train_loss, train_acc = history
+
+    # Validation step
+    val_loss, val_acc = model.evaluate(X_test, y_test, verbose=0)
+
+    print(f"loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}")
 
 # Evaluate accuracy
 train_loss, train_acc = model.evaluate(X_train, y_train, verbose=0)
