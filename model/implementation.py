@@ -1,101 +1,112 @@
+
 import os
+import pandas as pd
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import Sequence, to_categorical
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.callbacks import Callback
 
-# Load labels from TXT
-txt_path = "C:/Users/lms/Desktop/Codespace/uni/EmojiDetector/model/labels.txt"  # TXT should have lines in format: filename, emoji, unicode
-data_dir = "C:/Users/lms/Desktop/Codespace/uni/EmojiDetector/data/Emojis_data_M"
-image_size = (128, 128)
+# Step 1: Load and preprocess labels
+df = pd.read_csv(r"drive/MyDrive/screenshots10cropped/labels.txt", header=None, names=["filename", "emoji", "unicode"], sep=",\s*", engine='python')
 
-def load_labels(txt_path):
-    labels = []
-    with open(txt_path, "r", encoding="utf-8") as file:
-        for line in file:
-            parts = line.strip().split(",")
-            if len(parts) == 3:
-                labels.append(parts)
-    return labels
+# Only one emoji per image, no need to group
+le = LabelEncoder()
+df['encoded_unicode'] = le.fit_transform(df['unicode'])  # Encoded labels as integers
+num_classes = len(le.classes_)  # Should be 1906
 
-def load_images_and_labels(data_dir, labels):
-    images = []
-    label_list = []
-    
-    for filename, _, unicode_val in labels:
-        img_path = os.path.join(data_dir, filename)
-        if os.path.exists(img_path):
-            img = load_img(img_path, target_size=image_size)
-            img = img_to_array(img) / 255.0  # Normalize
-            images.append(img)
-            label_list.append(unicode_val)  # Use Unicode as label
-    
-    return np.array(images), np.array(label_list)
+# Step 2: Dataset generator
+class EmojiDataset(Sequence):
+    def __init__(self, df, img_dir, batch_size=32, img_size=(64, 64), shuffle=True):
+        self.df = df
+        self.img_dir = img_dir
+        self.batch_size = batch_size
+        self.img_size = img_size
+        self.shuffle = shuffle
+        self.indexes = np.arange(len(df))
+        self.on_epoch_end()
 
-# Load dataset
-labels = load_labels(txt_path)
-X, y = load_images_and_labels(data_dir, labels)
+    def __len__(self):
+        return int(np.ceil(len(self.df) / self.batch_size))
 
-# Encode labels (convert unicode to numerical labels)
-unique_labels = list(set(y))
-label_map = {label: idx for idx, label in enumerate(unique_labels)}
-y = np.array([label_map[label] for label in y])
+    def __getitem__(self, index):
+        batch_indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        batch_data = self.df.iloc[batch_indexes]
 
-# Split into train and test sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        images = []
+        labels = []
 
-# Build CNN model
-model = keras.Sequential([
-    layers.Conv2D(32, (3,3), activation='relu', input_shape=(128, 128, 3)),
-    layers.MaxPooling2D(2,2),
-    layers.Conv2D(64, (3,3), activation='relu'),
-    layers.MaxPooling2D(2,2),
-    layers.Conv2D(128, (3,3), activation='relu'),
-    layers.MaxPooling2D(2,2),
-    layers.Flatten(),
-    layers.Dense(128, activation='relu'),
-    layers.Dense(len(unique_labels), activation='softmax')
+        for _, row in batch_data.iterrows():
+            img_path = os.path.join(self.img_dir, row['filename'])
+            image = load_img(img_path, target_size=self.img_size)
+            image = img_to_array(image) / 255.0
+            images.append(image)
+            labels.append(row['encoded_unicode'])
+
+        # Convert to one-hot encoded labels
+        return np.array(images), to_categorical(np.array(labels), num_classes=num_classes)
+
+    def on_epoch_end(self):
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+# Step 3: Define CNN model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
+    MaxPooling2D(pool_size=(2, 2)),
+
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+
+    Flatten(),
+
+    Dense(128, activation='relu'),
+    Dense(num_classes, activation='softmax')  # Softmax for multi-class classification
 ])
 
-# Compile the model
-model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+# Step 4: Train generator
+train_generator = EmojiDataset(df, img_dir='/content/drive/MyDrive/screenshots10cropped/', batch_size=1, img_size=(64, 64))
 
-# Train the model
-epochs = 3
+# Step 5: Accuracy tester
+def test_model_accuracy(model, df, img_dir):
+    correct_predictions = 0
+    total_predictions = len(df)
 
-for epoch in range(epochs):
-    print(f"\nEpoch {epoch + 1}/{epochs}")
-    
-    # Training step (one forward + backward pass for all samples)
-    history = model.train_on_batch(X_train, y_train)  # No batching, everything at once
-    train_loss, train_acc = history
+    for index, row in df.iterrows():
+        img_path = os.path.join(img_dir, row['filename'])
+        img = load_img(img_path, target_size=(64, 64))
+        img = img_to_array(img) / 255.0
+        img = np.expand_dims(img, axis=0)
 
-    # Validation step
-    val_loss, val_acc = model.evaluate(X_test, y_test, verbose=0)
+        predicted_class = np.argmax(model.predict(img, verbose=0), axis=-1)[0]
+        actual_class = row['encoded_unicode']
 
-    print(f"loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}")
+        if predicted_class == actual_class:
+            correct_predictions += 1
 
-# Evaluate accuracy
-train_loss, train_acc = model.evaluate(X_train, y_train, verbose=0)
-test_loss, test_acc = model.evaluate(X_test, y_test, verbose=0)
-print(f"Train Accuracy: {train_acc:.4f}, Test Accuracy: {test_acc:.4f}")
+    accuracy = correct_predictions / total_predictions * 100
+    print(f"Model Accuracy: {accuracy:.2f}%")
 
-# Save model
-model.save("object_recognition_model.h5")
+# Optional: Predict the emoji from class index
+def class_to_unicode(pred_class_idx):
+    return le.inverse_transform([pred_class_idx])[0]
 
-# Function to predict a new image
-def predict_image(image_path, model, label_map):
-    img = load_img(image_path, target_size=image_size)
-    img = img_to_array(img) / 255.0
-    img = np.expand_dims(img, axis=0)
-    
-    prediction = model.predict(img)
-    predicted_label = list(label_map.keys())[np.argmax(prediction)]
-    return predicted_label
+# Step 6: Accuracy callback
+class AccuracyTestingCallback(Callback):
+    def __init__(self, df, img_dir, interval=30):
+        super().__init__()
+        self.df = df
+        self.img_dir = img_dir
+        self.interval = interval
 
-# Example usage
-result = predict_image("test_image.jpg", model, label_map)
-print("Predicted Unicode:", result)
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % self.interval == 0:
+            print(f"\nTesting accuracy after epoch {epoch + 1}...")
+            test_model_accuracy(self.model, self.df, self.img_dir)
+
+# Step 7: Train the model
+accuracy_callback = AccuracyTestingCallback(df, '/content/drive/MyDrive/screenshots10cropped/')
+model.fit(train_generator, epochs=30, callbacks=[accuracy_callback])
