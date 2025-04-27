@@ -45,6 +45,6 @@ Built with deep learning and modern web technologies for real-time performance.
 ### 🔹 Clone the repository
 
 ```bash
-git clone https://github.com/your-repo/emoji-detector.git
+git clone https://github.com/Rizwan-0905/emoji-detector.git
 cd emoji-detector
 ```
