@@ -17,10 +17,11 @@ function App() {
     setLoading(true);
 
     const formData = new FormData();
-    formData.append("image", selectedFile);
+    formData.append("file", selectedFile); // Key changed to "file" to match FastAPI backend
 
     try {
-      const response = await fetch("/api/process", {
+      const response = await fetch("http://127.0.0.1:8000/predict/", {
+        // Corrected to match the backend URL
         method: "POST",
         body: formData,
       });
@@ -67,7 +68,11 @@ function App() {
                 {loading ? "Processing..." : "Upload"}
               </button>
               {selectedFile && (
-                <button type="button" className="clear-button" onClick={handleClear}>
+                <button
+                  type="button"
+                  className="clear-button"
+                  onClick={handleClear}
+                >
                   Clear
                 </button>
               )}

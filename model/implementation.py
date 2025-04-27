@@ -110,3 +110,24 @@ class AccuracyTestingCallback(Callback):
 # Step 7: Train the model
 accuracy_callback = AccuracyTestingCallback(df, '/content/drive/MyDrive/screenshots10cropped/')
 model.fit(train_generator, epochs=30, callbacks=[accuracy_callback])
+
+# Step 8: Test on a single image
+test_img_path = "/content/drive/MyDrive/screenshot_1.png"
+
+# Preprocess the image
+img = load_img(test_img_path, target_size=(64, 64))
+img_array = img_to_array(img) / 255.0
+img_array = np.expand_dims(img_array, axis=0)
+
+# Predict
+prediction = model.predict(img_array)
+predicted_class = np.argmax(prediction, axis=-1)[0]
+predicted_unicode = class_to_unicode(predicted_class)
+
+print(f"\nPrediction for {os.path.basename(test_img_path)}:")
+print(f"Predicted Class Index: {predicted_class}")
+print(f"Predicted Unicode: {predicted_unicode}")
+
+model.save("my_model.h5")  # HDF5 format
+from google.colab import files
+files.download("my_model.h5")
