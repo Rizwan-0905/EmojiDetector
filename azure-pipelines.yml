@@ -1,19 +1,35 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  - main
 
 pool:
   vmImage: ubuntu-latest
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "18.x"
+    displayName: "Install Node.js"
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+  - script: |
+      cd frontend
+      npm install
+      npm run start &
+    displayName: "Run Frontend (npm run dev)"
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.x"
+    displayName: "Use Python 3"
+
+  - script: |
+      pip install -r API/requirements.txt
+      pip install -r requirements.txt
+      cd API
+      python endpoints.py &
+    displayName: "Run Backend (Python)"
+
+  - script: |
+      echo "Running smoke test..."
+      curl http://localhost:3000 || echo "Frontend not responding"
+      curl http://localhost:5000/api/health || echo "Backend not responding"
+    displayName: "Smoke Test"
